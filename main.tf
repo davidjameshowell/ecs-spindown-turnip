@@ -40,11 +40,11 @@ module "ecs_lambda_turnip_function" {
 
   function_name = "ecs-lambda-turnip"
   description   = "ECS function to turn up "
-  handler       = "main.lambda_handler"
-  runtime       = "python3.9"
+  handler       = "index.handler"
+  runtime       = "nodejs14.x"
   publish       = true
 
-  source_path = "./lambda-src/ecs-lambda"
+  source_path = "./lambda-src/ecs-lambda-nodejs"
   attach_policy = true
   policy        = aws_iam_policy.ecs_lambda_turnip_policy.arn
 
@@ -151,30 +151,37 @@ resource "aws_apigatewayv2_route" "ecs_api_default_get_route" {
     target             = "integrations/${aws_apigatewayv2_integration.ecs_api_default_get_integration.id}"
 }
 
-module "metric_alarms" {
-  source  = "terraform-aws-modules/cloudwatch/aws//modules/metric-alarms-by-multiple-dimensions"
-  version = "~> 2.0"
-
-  alarm_name          = "preview-environment-no-activity-"
-  alarm_description   = "Requests to preview environment are 0; spin down to save money"
-  comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = 1
-  threshold           = 10
-  period              = 60
-  unit                = "Milliseconds"
-
-  namespace   = "AWS/Lambda"
-  metric_name = "Duration"
-  statistic   = "Maximum"
-
-  dimensions = {
-    "lambda1" = {
-      FunctionName = "index"
-    },
-    "lambda2" = {
-      FunctionName = "signup"
-    },
-  }
-
-  alarm_actions = ["arn:aws:sns:eu-west-1:835367859852:my-sns-queue"]
+resource "aws_lambda_permission" "allow_api" {
+  statement_id  = "AllowAPIgatewayInvokation"
+  action        = "lambda:InvokeFunction"
+  function_name = module.ecs_lambda_turnip_function.lambda_function_name
+  principal     = "apigateway.amazonaws.com"
 }
+
+# module "metric_alarms" {
+#   source  = "terraform-aws-modules/cloudwatch/aws//modules/metric-alarms-by-multiple-dimensions"
+#   version = "~> 2.0"
+
+#   alarm_name          = "preview-environment-no-activity-"
+#   alarm_description   = "Requests to preview environment are 0; spin down to save money"
+#   comparison_operator = "LessThanOrEqualToThreshold"
+#   evaluation_periods  = 1
+#   threshold           = 10
+#   period              = 60
+#   unit                = "Milliseconds"
+
+#   namespace   = "AWS/Lambda"
+#   metric_name = "Duration"
+#   statistic   = "Maximum"
+
+#   dimensions = {
+#     "lambda1" = {
+#       FunctionName = "index"
+#     },
+#     "lambda2" = {
+#       FunctionName = "signup"
+#     },
+#   }
+
+#   alarm_actions = ["arn:aws:sns:eu-west-1:835367859852:my-sns-queue"]
+# }
